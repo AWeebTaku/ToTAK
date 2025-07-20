@@ -1,2 +1,2 @@
-# Rougelike
- A Rougelike Dungeon Crawler
+# Roguelike
+ A Roguelike Dungeon Crawler
