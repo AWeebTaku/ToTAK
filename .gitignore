@@ -1,0 +1,16 @@
+# Godot
+.godot/
+.import/
+*.translation
+export_credentials.cfg
+# Build output
+build/*
+!build/.gdignore
+dist/
+# Python tooling / legacy
+__pycache__/
+*.pyc
+savegame.sav
+# Local
+.claude_session
+.claude/

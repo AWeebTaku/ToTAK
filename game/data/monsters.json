@@ -1,0 +1,4 @@
+{
+  "orc":   {"name": "Ghoul",   "sprite": "orc",   "hp": 10, "defense": 0, "power": 3, "xp": 35},
+  "troll": {"name": "Abomination", "sprite": "troll", "hp": 16, "defense": 1, "power": 4, "xp": 100}
+}

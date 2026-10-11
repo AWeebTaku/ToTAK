@@ -1,0 +1,204 @@
+name: Release
+
+# Every push to main that changes the game builds and publishes a new release:
+#   version  = latest tag bumped (patch by default, "#minor" / "#major" in a commit message since the last tag)
+#   assets   = Windows Setup.exe, macOS .dmg, Linux .AppImage + .tar.gz, SHA256SUMS
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["README.md", "CHANGELOG.md", "LICENSE", "legacy/**", ".gitignore"]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.v.outputs.build }}
+      version: ${{ steps.v.outputs.version }}
+      prev: ${{ steps.v.outputs.prev }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: v
+        env:
+          INPUT_BUMP: ${{ inputs.bump }}
+        run: |
+          prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+          if [ -z "$prev" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "version=0.1.0" >> "$GITHUB_OUTPUT"
+            echo "prev=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "prev=$prev" >> "$GITHUB_OUTPUT"
+          changed=$(git diff --name-only "$prev" HEAD -- game assets project.godot export_presets.cfg installer)
+          if [ -z "$changed" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
+            echo "No game files changed since $prev; skipping release."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          bump=patch
+          msgs=$(git log "$prev"..HEAD --format=%B)
+          if echo "$msgs" | grep -q '#major'; then bump=major
+          elif echo "$msgs" | grep -q '#minor'; then bump=minor; fi
+          if [ -n "$INPUT_BUMP" ]; then bump=$INPUT_BUMP; fi
+          IFS=. read -r MA MI PA <<< "${prev#v}"
+          case $bump in
+            major) MA=$((MA+1)); MI=0; PA=0 ;;
+            minor) MI=$((MI+1)); PA=0 ;;
+            *)     PA=$((PA+1)) ;;
+          esac
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          echo "version=$MA.$MI.$PA" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: version
+    if: needs.version.outputs.build == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  export:
+    needs: [version, test]
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    container: barichello/godot-ci:4.7.2
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stamp version
+        run: |
+          sed -i "s|^const VERSION := .*|const VERSION := \"$VERSION\"|" game/core/version.gd
+          sed -i "s|^application/short_version=.*|application/short_version=\"$VERSION\"|; s|^application/version=.*|application/version=\"$VERSION\"|; s|^application/file_version=.*|application/file_version=\"$VERSION.0\"|; s|^application/product_version=.*|application/product_version=\"$VERSION.0\"|" export_presets.cfg
+          head -3 game/core/version.gd
+      - name: Install export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates
+          cp -r /root/.local/share/godot/export_templates/4.7.2.stable ~/.local/share/godot/export_templates/ || true
+      - name: Import
+        run: godot --headless --import || true
+      - name: Export
+        run: |
+          mkdir -p build/windows build/linux build/macos
+          godot --headless --export-release "Windows" build/windows/ToTAK.exe
+          godot --headless --export-release "Linux" build/linux/ToTAK.x86_64
+          godot --headless --export-release "macOS" build/macos/ToTAK.zip
+          ls -lR build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: export
+          path: build/
+          retention-days: 3
+
+  windows:
+    needs: [version, export]
+    timeout-minutes: 45
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: export
+          path: build
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $env:Path += ";${env:ProgramFiles(x86)}\Inno Setup 6"
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup -y --no-progress
+          }
+          iscc "/DAppVersion=${{ needs.version.outputs.version }}" installer\windows.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-windows
+          path: dist/*.exe
+
+  macos:
+    needs: [version, export]
+    timeout-minutes: 45
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: export
+          path: build
+      - name: Build dmg
+        run: |
+          mkdir -p stage dist
+          ditto -x -k build/macos/ToTAK.zip stage
+          app=$(ls -d stage/*.app | head -1)
+          # Ad-hoc sign: Apple Silicon refuses to run completely unsigned code.
+          codesign --force --deep --sign - "$app"
+          ln -s /Applications stage/Applications
+          hdiutil create -volname "ToTAK $VERSION" -srcfolder stage -ov -format UDZO "dist/ToTAK-$VERSION-macos.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-macos
+          path: dist/*.dmg
+
+  linux:
+    needs: [version, export]
+    timeout-minutes: 45
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: export
+          path: build
+      - name: Package
+        run: |
+          mkdir -p dist AppDir/usr/bin
+          chmod +x build/linux/ToTAK.x86_64
+          cp build/linux/ToTAK.x86_64 AppDir/usr/bin/
+          cp installer/linux/AppRun AppDir/AppRun && chmod +x AppDir/AppRun
+          cp installer/linux/totak.desktop AppDir/totak.desktop
+          cp assets/icon.png AppDir/totak.png
+          wget -q -O appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir "dist/ToTAK-$VERSION-linux-x86_64.AppImage"
+          mkdir "ToTAK-$VERSION-linux"
+          cp build/linux/ToTAK.x86_64 "ToTAK-$VERSION-linux/"
+          tar -czf "dist/ToTAK-$VERSION-linux-x86_64.tar.gz" "ToTAK-$VERSION-linux"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-linux
+          path: dist/*
+
+  publish:
+    needs: [version, windows, macos, linux]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
+      PREV: ${{ needs.version.outputs.prev }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: pkg-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: Create release
+        run: |
+          args=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "ToTAK v$VERSION" --generate-notes)
+          if [ -n "$PREV" ]; then args+=(--notes-start-tag "$PREV"); fi
+          gh release create "v$VERSION" "${args[@]}" dist/*

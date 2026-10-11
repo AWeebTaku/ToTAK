@@ -1,0 +1,31 @@
+name: Bug report
+description: Something broke or behaves wrongly
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Game version
+      description: Shown in the bottom-right corner of the main menu (for example 0.3.1)
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux (AppImage), Linux (tarball)]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what actually happened. Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: "Linux/macOS: run from a terminal and paste the output. Windows: run ToTAK.exe from cmd."
+      render: text

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Tombs of the Ancient Kings
+Comment=A pixel-art roguelike dungeon crawler
+Exec=ToTAK.x86_64
+Icon=totak
+Categories=Game;RolePlaying;
+Terminal=false

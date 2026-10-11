@@ -1,0 +1,23 @@
+name: CI
+
+# Runs on pull requests, manually, and as the first stage of release.yml.
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: barichello/godot-ci:4.7.2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Import project
+        run: godot --headless --import || true   # the first import run can exit non-zero on a cold cache
+      - name: Logic tests
+        run: godot --headless -s tests/run.gd
+      - name: UI smoke test
+        run: godot --headless -s tests/smoke.gd
+      - name: Random-bot soak test
+        run: godot --headless -s tests/fuzz.gd

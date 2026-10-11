@@ -1,0 +1,10 @@
+{
+  "health_potion":    {"name": "Health Potion",    "sprite": "potion",  "tint": "#ffffff", "effect": "heal",      "amount": 10},
+  "lightning_scroll": {"name": "Lightning Scroll", "sprite": "scroll",  "tint": "#ffe94a", "effect": "lightning", "damage": 20, "range": 5},
+  "confusion_scroll": {"name": "Confusion Scroll", "sprite": "scroll",  "tint": "#cf3fff", "effect": "confusion", "turns": 10},
+  "fireball_scroll":  {"name": "Fireball Scroll",  "sprite": "scroll",  "tint": "#ff5a3a", "effect": "fireball",  "damage": 12, "radius": 3},
+  "dagger":           {"name": "Dagger",           "sprite": "dagger",  "tint": "#ffffff", "slot": "weapon", "power": 2},
+  "sword":            {"name": "Sword",            "sprite": "sword",   "tint": "#ffffff", "slot": "weapon", "power": 4},
+  "leather_armor":    {"name": "Leather Armor",    "sprite": "leather", "tint": "#ffffff", "slot": "armor",  "defense": 1},
+  "chain_mail":       {"name": "Chain Mail",       "sprite": "chain",   "tint": "#ffffff", "slot": "armor",  "defense": 3}
+}

@@ -1,0 +1,16 @@
+{
+  "max_items":    [[1, 1], [4, 2]],
+  "max_monsters": [[1, 2], [4, 3], [6, 5]],
+  "items": [
+    [0, {"health_potion": 35}],
+    [2, {"confusion_scroll": 10}],
+    [4, {"lightning_scroll": 25, "sword": 5}],
+    [6, {"fireball_scroll": 25, "chain_mail": 15}]
+  ],
+  "monsters": [
+    [0, {"orc": 80}],
+    [3, {"troll": 15}],
+    [5, {"troll": 30}],
+    [7, {"troll": 60}]
+  ]
+}
