@@ -39,8 +39,10 @@ Every release lists the same set of files (replace `X.Y.Z` with the version):
 |---|---|---|
 | Windows 10/11 (64-bit) | `ToTAK-X.Y.Z-windows-Setup.exe` | Installer |
 | macOS 10.15+ (Intel and Apple Silicon) | `ToTAK-X.Y.Z-macos.dmg` | Universal app |
-| Linux x86_64 | `ToTAK-X.Y.Z-linux-x86_64.AppImage` | Runs on most distros |
-| Linux x86_64 (alternative) | `ToTAK-X.Y.Z-linux-x86_64.tar.gz` | Plain binary |
+| Debian, Ubuntu, Linux Mint, Pop!_OS | `ToTAK-X.Y.Z-linux-debian-ubuntu-amd64.deb` | Native package |
+| Fedora, openSUSE, RHEL and derivatives | `ToTAK-X.Y.Z-linux-fedora-opensuse-x86_64.rpm` | Native package |
+| Arch, Manjaro, EndeavourOS | `ToTAK-X.Y.Z-linux-arch-x86_64.pkg.tar.zst` | Native package |
+| Any other Linux x86_64 | `ToTAK-X.Y.Z-linux-x86_64.AppImage` or `.tar.gz` | Runs without installing |
 | All | `SHA256SUMS` | Checksums to verify downloads |
 
 **System requirements:** any 64-bit machine from the last ~10 years with OpenGL 3.3 (or OpenGL ES 3.0) capable graphics
@@ -64,7 +66,35 @@ To uninstall use *Settings → Apps*. Your saves are kept (see [saves](#where-yo
 3. After that first launch it opens normally.
 
 ### Linux
-**AppImage (recommended)**
+
+Pick the package for your distribution. All of them install the same game: a `totak` command, an application-menu entry
+(**Tombs of the Ancient Kings**, under Games) and the icon. Packages are for 64-bit x86 (amd64) only.
+
+**Debian, Ubuntu, Linux Mint, Pop!_OS** (`.deb`)
+```bash
+sudo apt install ./ToTAK-X.Y.Z-linux-debian-ubuntu-amd64.deb
+```
+
+**Fedora, RHEL, Rocky, Alma** (`.rpm`)
+```bash
+sudo dnf install ./ToTAK-X.Y.Z-linux-fedora-opensuse-x86_64.rpm
+```
+
+**openSUSE** (`.rpm`)
+```bash
+sudo zypper --no-gpg-checks install ./ToTAK-X.Y.Z-linux-fedora-opensuse-x86_64.rpm
+```
+(The packages are not GPG-signed, hence `--no-gpg-checks`.)
+
+**Arch, Manjaro, EndeavourOS** (`.pkg.tar.zst`)
+```bash
+sudo pacman -U ./ToTAK-X.Y.Z-linux-arch-x86_64.pkg.tar.zst
+```
+
+Run it from the menu or with `totak`. Remove it with `sudo apt remove totak`, `sudo dnf remove totak`,
+`sudo zypper remove totak` or `sudo pacman -R totak`. Your saves stay in your home folder.
+
+**AppImage (any distro, nothing to install)**
 ```bash
 chmod +x ToTAK-X.Y.Z-linux-x86_64.AppImage
 ./ToTAK-X.Y.Z-linux-x86_64.AppImage
@@ -74,12 +104,15 @@ chmod +x ToTAK-X.Y.Z-linux-x86_64.AppImage
   `./ToTAK-*.AppImage --appimage-extract-and-run`.
 - Optional: use [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) or *Gear Lever* to add it to your app menu.
 
-**Tarball (any distro, no FUSE)**
+**Tarball (any distro, no FUSE, no root)**
 ```bash
 tar -xzf ToTAK-X.Y.Z-linux-x86_64.tar.gz
 cd ToTAK-X.Y.Z-linux
 ./ToTAK.x86_64
 ```
+
+Other distributions (NixOS, Void, Alpine and so on) should use the AppImage or tarball. The Linux builds need glibc,
+so musl-based systems such as Alpine need a glibc compatibility layer.
 
 Verify a download (any OS): `sha256sum -c SHA256SUMS --ignore-missing` (Linux), `shasum -a 256 -c SHA256SUMS --ignore-missing` (macOS),
 or `Get-FileHash <file>` (Windows PowerShell) and compare with `SHA256SUMS`.
@@ -93,7 +126,8 @@ or `Get-FileHash <file>` (Windows PowerShell) and compare with `SHA256SUMS`.
   You can turn the startup check off, or check manually, under **Options → About**.
 - **Windows:** just run the newer `Setup.exe`. It detects the existing installation and **upgrades it in place**.
 - **macOS:** drag the new app over the old one in Applications (choose *Replace*).
-- **Linux:** download the new AppImage/tarball and delete the old one.
+- **Linux packages:** install the newer `.deb` / `.rpm` / `.pkg.tar.zst` with the same command as before; it upgrades in place.
+- **Linux AppImage / tarball:** download the new file and delete the old one.
 - **Saves carry over.** Save files are versioned and migrated automatically when a newer game opens an older save.
   (A save made by a *newer* game than the one you launch is refused rather than corrupted. Update the game instead.)
 
@@ -153,6 +187,8 @@ Files: `save.json` (current run) and `settings.cfg` (sound, update check). Back 
 |---|---|
 | Black window / crash on start (Linux, old GPU) | Run with `--rendering-driver opengl3`, e.g. `./ToTAK.x86_64 --rendering-driver opengl3`; make sure Mesa/GPU drivers are installed |
 | Wayland issues (Linux) | Try `--display-driver x11` |
+| `.deb` install says a dependency is missing | Run `sudo apt install -f`, or install with `sudo apt install ./file.deb` (not `dpkg -i`) so dependencies are fetched |
+| `.rpm` asks for `libGL.so.1` or similar | Install your GPU driver / Mesa (`sudo dnf install mesa-libGL`) |
 | AppImage says "dlopen(): error loading libfuse.so.2" | Install `libfuse2` or use `--appimage-extract-and-run` |
 | macOS says the app "is damaged" | Run `xattr -cr "/Applications/Tombs of the Ancient Kings.app"` and open it again |
 | Windows SmartScreen blocks the installer | *More info → Run anyway* (installer is unsigned) |
@@ -194,8 +230,14 @@ godot --headless --export-release "Linux"   build/linux/ToTAK.x86_64
 godot --headless --export-release "Windows" build/windows/ToTAK.exe
 godot --headless --export-release "macOS"   build/macos/ToTAK.zip
 ```
-The installers (Inno Setup `.exe`, `.dmg`, AppImage) are produced by CI; see
-[`.github/workflows/release.yml`](.github/workflows/release.yml) and [`installer/`](installer/) to reproduce them by hand.
+The installers and packages are produced by CI; see [`.github/workflows/release.yml`](.github/workflows/release.yml) and
+[`installer/`](installer/) to reproduce them by hand. The Linux ones are plain shell scripts you can run yourself after
+exporting the Linux build:
+```bash
+installer/linux/build-deb.sh  0.1.0 build/linux/ToTAK.x86_64 out/totak.deb                  # needs dpkg-deb
+installer/linux/build-rpm.sh  0.1.0 build/linux/ToTAK.x86_64 out/totak.rpm                  # needs rpmbuild
+installer/linux/build-arch.sh 0.1.0 build/linux/ToTAK.x86_64 out/totak.pkg.tar.zst          # needs makepkg, run as non-root
+```
 
 **Regenerate the art and sound effects:** `python3 tools/gen_assets.py` (writes `assets/tiles.png`, the icons, the save icon and
 `assets/sfx/*.wav`; all of it is original and CC0). If you add a tile, append its name to `NAMES` in both
@@ -213,7 +255,7 @@ game/ui/      main menu, game scene, HUD (hotbar, minimap, log), controls screen
 assets/       tileset, icons, sound effects
 tests/        headless tests: run.gd (logic), smoke.gd (UI), fuzz.gd (soak)
 tools/        gen_assets.py: regenerates all art and audio
-installer/    Windows (Inno Setup) and Linux (AppImage) packaging files
+installer/    Windows (Inno Setup) and Linux (AppImage, deb, rpm, Arch) packaging files
 .github/      CI and release workflows, issue and PR templates
 docs/         README screenshots
 legacy/       the original Python/tcod game, kept for reference
@@ -236,11 +278,18 @@ Releases are fully automatic ([`release.yml`](.github/workflows/release.yml)). O
 2. All tests run (`ci.yml`: logic, UI smoke, soak). A failure stops the release.
 3. The game is exported for Windows, Linux and macOS with Godot 4.7 and the version is stamped into the build.
 4. Packages are built: Windows `Setup.exe` (Inno Setup, fixed AppId so it upgrades in place), macOS `.dmg`
-   (universal, ad-hoc signed), Linux `.AppImage` and `.tar.gz`, plus `SHA256SUMS`.
-5. A GitHub Release `vX.Y.Z` is created with notes generated from the commits **since the previous release**
-   and all files attached.
+   (universal, ad-hoc signed), Linux `.AppImage`, `.tar.gz`, `.deb`, `.rpm` and Arch `.pkg.tar.zst`, plus `SHA256SUMS`.
+   The `.deb` is test-installed on the Ubuntu runner, the `.rpm` in a Fedora container and the Arch package in an Arch
+   container, and each must start the game headlessly before the release is published.
+5. A GitHub Release `vX.Y.Z` is created with a download table plus notes generated from the commits **since the previous
+   release**, and all files attached.
 
-Changes that only touch docs, `README.md`, `CHANGELOG.md` or `legacy/` do not trigger a release.
+**Rebuilding without a new version:** run *Actions → Release → Run workflow* with **bump = none**. It rebuilds every package
+from the current `main`, replaces the assets of the latest release (same version number) and moves its tag to the current
+commit. Useful after adding a new package type or fixing packaging.
+
+Changes that only touch docs, `README.md`, `CHANGELOG.md` or `legacy/` do not trigger a release, and a commit message
+containing `[skip ci]` skips all workflows.
 
 **First-time setup for a fork or new repository**
 1. Push this repository to GitHub (branch `main`).

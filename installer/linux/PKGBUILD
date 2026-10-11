@@ -1,0 +1,17 @@
+# Arch Linux package, built by build-arch.sh (which exports TOTAK_VERSION, TOTAK_STAGE and TOTAK_LICENSE).
+pkgname=totak
+pkgver=${TOTAK_VERSION:?set TOTAK_VERSION}
+pkgrel=1
+pkgdesc='Pixel-art horror roguelike dungeon crawler'
+arch=('x86_64')
+url='https://github.com/AWeebTaku/ToTAK'
+license=('MIT')
+depends=('glibc' 'libx11' 'libxcursor' 'libxi' 'libxinerama' 'libxrandr' 'libglvnd')
+optdepends=('alsa-lib: sound output' 'libpulse: sound output')
+# Godot appends the game data to the binary, so stripping would corrupt it.
+options=('!strip' '!debug')
+
+package() {
+  cp -a "${TOTAK_STAGE:?set TOTAK_STAGE}"/. "$pkgdir"/
+  install -Dm644 "${TOTAK_LICENSE:?set TOTAK_LICENSE}" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

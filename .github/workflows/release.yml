@@ -2,7 +2,8 @@ name: Release
 
 # Every push to main that changes the game builds and publishes a new release:
 #   version  = latest tag bumped (patch by default, "#minor" / "#major" in a commit message since the last tag)
-#   assets   = Windows Setup.exe, macOS .dmg, Linux .AppImage + .tar.gz, SHA256SUMS
+#   assets   = Windows Setup.exe, macOS .dmg, Linux .AppImage + .tar.gz + .deb + .rpm + Arch .pkg.tar.zst, SHA256SUMS
+# Manual run with bump = "none" rebuilds the latest release in place (same version, assets replaced).
 on:
   push:
     branches: [main]
@@ -10,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Version bump"
         type: choice
-        options: [patch, minor, major]
+        description: "Version bump (none = rebuild the latest release, same version, replace its assets)"
+        options: [patch, minor, major, none]
         default: patch
 
 permissions:
@@ -29,6 +30,7 @@ jobs:
       build: ${{ steps.v.outputs.build }}
       version: ${{ steps.v.outputs.version }}
       prev: ${{ steps.v.outputs.prev }}
+      rebuild: ${{ steps.v.outputs.rebuild }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,12 +41,20 @@ jobs:
         run: |
           prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
           if [ -z "$prev" ]; then
+            if [ "$INPUT_BUMP" = none ]; then echo "No release exists yet, nothing to rebuild." >&2; exit 1; fi
             echo "build=true" >> "$GITHUB_OUTPUT"
             echo "version=0.1.0" >> "$GITHUB_OUTPUT"
             echo "prev=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "prev=$prev" >> "$GITHUB_OUTPUT"
+          if [ "$INPUT_BUMP" = none ]; then
+            echo "Rebuilding $prev without a version bump."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "version=${prev#v}" >> "$GITHUB_OUTPUT"
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           changed=$(git diff --name-only "$prev" HEAD -- game assets project.godot export_presets.cfg installer)
           if [ -z "$changed" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then
             echo "No game files changed since $prev; skipping release."
@@ -182,14 +192,102 @@ jobs:
           name: pkg-linux
           path: dist/*
 
+  deb:
+    needs: [version, export]
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: export
+          path: build
+      - name: Build .deb (Debian, Ubuntu, Mint, Pop!_OS)
+        run: installer/linux/build-deb.sh "$VERSION" build/linux/ToTAK.x86_64 "dist/ToTAK-$VERSION-linux-debian-ubuntu-amd64.deb"
+      - name: Inspect and test-install
+        run: |
+          dpkg-deb --info dist/*.deb
+          dpkg-deb --contents dist/*.deb
+          sudo apt-get install -y ./dist/*.deb
+          test -x /usr/bin/totak && test -f /usr/share/applications/totak.desktop
+          totak --headless --quit-after 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-deb
+          path: dist/*.deb
+
+  rpm:
+    needs: [version, export]
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: export
+          path: build
+      - name: Build .rpm (Fedora, openSUSE, RHEL and derivatives)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+          installer/linux/build-rpm.sh "$VERSION" build/linux/ToTAK.x86_64 "dist/ToTAK-$VERSION-linux-fedora-opensuse-x86_64.rpm"
+          rpm -qpi dist/*.rpm
+          rpm -qpl dist/*.rpm
+      - name: Test-install on Fedora
+        run: |
+          docker run --rm -v "$PWD/dist:/pkg:ro" fedora:latest sh -c \
+            'dnf install -y /pkg/*.rpm && test -x /usr/bin/totak && totak --headless --quit-after 30'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-rpm
+          path: dist/*.rpm
+
+  arch:
+    needs: [version, export]
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Install build tools
+        run: pacman -Syu --noconfirm base-devel git
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: export
+          path: build
+      - name: Build Arch package (Arch, Manjaro, EndeavourOS)
+        run: |
+          useradd -m builder
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          su builder -c "cd '$GITHUB_WORKSPACE' && installer/linux/build-arch.sh '$VERSION' build/linux/ToTAK.x86_64 'dist/ToTAK-$VERSION-linux-arch-x86_64.pkg.tar.zst'"
+      - name: Inspect and test-install
+        run: |
+          pacman -Qpi dist/*.pkg.tar.zst
+          pacman -Qpl dist/*.pkg.tar.zst
+          pacman -U --noconfirm dist/*.pkg.tar.zst
+          test -x /usr/bin/totak
+          totak --headless --quit-after 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-arch
+          path: dist/*.pkg.tar.zst
+
   publish:
-    needs: [version, windows, macos, linux]
+    needs: [version, windows, macos, linux, deb, rpm, arch]
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.version.outputs.version }}
       PREV: ${{ needs.version.outputs.prev }}
+      REBUILD: ${{ needs.version.outputs.rebuild }}
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: pkg-*
@@ -197,8 +295,17 @@ jobs:
           merge-multiple: true
       - name: Checksums
         run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
-      - name: Create release
+      - name: Publish release
         run: |
-          args=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "ToTAK v$VERSION" --generate-notes)
-          if [ -n "$PREV" ]; then args+=(--notes-start-tag "$PREV"); fi
+          if [ "$REBUILD" = true ]; then
+            # Same version: replace the assets and point the tag at this commit so the source archive matches the build.
+            gh release upload "v$VERSION" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/v$VERSION" -f sha="$GITHUB_SHA" -F force=true
+            exit 0
+          fi
+          sed "s/@VERSION@/$VERSION/g" .github/release-install.md > notes.md
+          args=(--repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "ToTAK v$VERSION" --notes-file notes.md)
+          if [ -n "$PREV" ]; then
+            args+=(--generate-notes --notes-start-tag "$PREV")   # install table first, then the commits since the last release
+          fi
           gh release create "v$VERSION" "${args[@]}" dist/*

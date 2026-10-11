@@ -12,7 +12,8 @@ Complete remake in Godot 4 (the original Python/ASCII game lives on in `legacy/`
   health strip that opens the character sheet, auto-hiding message log, pause button, red X and click-outside to close menus.
 - **Gameplay:** WASD / arrows / numpad / vi movement with hold-to-walk, stackable consumables, quick-heal (`Q`),
   quick-save (`F5`), autosave every turn, XP and level-ups (the original never awarded XP).
-- **Platform:** Windows installer, macOS dmg, Linux AppImage and tarball, built and released automatically.
+- **Platform:** Windows installer, macOS dmg, Linux AppImage, tarball, `.deb` (Debian/Ubuntu), `.rpm` (Fedora/openSUSE) and
+  Arch package, built and released automatically.
   In-game update notices, versioned saves with migrations.
 - **Other fixes versus the original:** one death message, inventory index off-by-one, fireball radius preview, nothing spawns
   on the player's tile, health potions heal 10 instead of 4.
