@@ -1,0 +1,46 @@
+name: Pages
+
+# Builds the Godot web export and publishes it with the landing page (docs/) to GitHub Pages.
+# One-time setup: repo Settings > Pages > Source = "GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**", "game/**", "assets/**", "project.godot", "export_presets.cfg", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    container: barichello/godot-ci:4.7.2
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates
+          mv /root/.local/share/godot/export_templates/4.7.2.stable ~/.local/share/godot/export_templates/ 2>/dev/null || true
+      - name: Export web build
+        run: |
+          godot --headless --import || true
+          mkdir -p _site/play
+          godot --headless --export-release Web "$PWD/_site/play/index.html"
+      - name: Assemble site
+        run: cp -r docs/index.html docs/icon.png docs/tiles.png docs/screenshots _site/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
