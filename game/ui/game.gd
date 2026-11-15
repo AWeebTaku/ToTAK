@@ -381,6 +381,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_held_key = 0
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
+	var vp := get_viewport()   # grab it first: a key can change scene (to menu), after which this node has no viewport
 	match mode:
 		Mode.BUSY:
 			pass
@@ -398,7 +399,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_key_dead(event)
 		_:
 			_dismiss()   # help / character / history: any key closes
-	get_viewport().set_input_as_handled()
+	vp.set_input_as_handled()
 
 
 func _key_play(e: InputEventKey) -> void:

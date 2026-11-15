@@ -158,5 +158,11 @@ func _initialize() -> void:
 	game.gs.damage(game.gs.player, 5, null)
 	game._open_dead()
 	await process_frame
-	print("smoke ok; start=%s end=%s floor=%d" % [start, game.gs.player.pos(), game.gs.floor_no])
+	var summary := "start=%s end=%s floor=%d" % [start, game.gs.player.pos(), game.gs.floor_no]
+	# issue #1: M on the death screen leaves the game scene; that must not touch the freed game's viewport
+	await key(KEY_M)
+	for i in 3:
+		await process_frame
+	assert(current_scene.name == "Menu", "M on the death screen returns to the main menu")
+	print("smoke ok; " + summary)
 	quit(0)

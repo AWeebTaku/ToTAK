@@ -4,6 +4,8 @@ A turn-based, pixel-art **horror roguelike** for **Windows, macOS and Linux**.
 Descend through procedurally generated tombs that get darker the deeper you go, survive ghouls and abominations with a single guttering torch, loot scrolls, potions, weapons and armor,
 level up, and see how deep you can get before the dark claims you. Low health pulses the edges of your screen red and fills your ears with your own heartbeat.
 
+**[Play it in your browser](https://aweebtaku.github.io/ToTAK/#play)** (no install) · **[Website](https://aweebtaku.github.io/ToTAK/)** · **[Download](https://github.com/AWeebTaku/ToTAK/releases/latest)**
+
 | Main menu | In the dungeon | Character sheet |
 |---|---|---|
 | ![menu](docs/screenshots/menu.png) | ![game](docs/screenshots/game.png) | ![character](docs/screenshots/character.png) |
@@ -119,6 +121,14 @@ or `Get-FileHash <file>` (Windows PowerShell) and compare with `SHA256SUMS`.
 
 ---
 
+### Play in the browser
+
+The website has a live demo of the full game: open the [site](https://aweebtaku.github.io/ToTAK/#play), click **Start demo**
+and click inside the game so it can read your keys. It needs a keyboard and a modern browser, and downloads about 10 MB.
+Browser saves stay in that browser only; use the desktop build for long runs.
+
+---
+
 ## Updating
 
 - **In the game:** on startup the menu checks GitHub for a newer release (one small request, nothing is sent about you).
@@ -194,6 +204,8 @@ Files: `save.json` (current run) and `settings.cfg` (sound, update check). Back 
 | Windows SmartScreen blocks the installer | *More info → Run anyway* (installer is unsigned) |
 | "That save could not be loaded" | Delete `save.json` from the [saves folder](#where-your-saves-live) and start a new game |
 | No sound | Menu → *Options → Sound effects*; check your OS audio output |
+| Browser demo is blank or does not react to keys | Click once inside the game, then use the keyboard. Try a recent Chrome, Edge or Firefox |
+| Game crashes going back to the menu after dying (v1.0.0) | Fixed in v1.0.1: [update](#updating) |
 | Report a bug | [Open an issue](https://github.com/AWeebTaku/ToTAK/issues) with your OS, version (bottom-right of the menu), and what happened |
 
 ---
@@ -219,9 +231,11 @@ godot --headless --import      # once, to import assets
 godot --headless -s tests/run.gd     # game logic: procgen, FOV, combat, items, stacking, saves, migrations
 godot --headless -s tests/smoke.gd   # boots the UI: menus, hotbar, hold-to-walk, stairs, quick save, close buttons
 godot --headless -s tests/fuzz.gd    # random-bot soak test: ~9,000 turns across 40 seeds, with save/load round-trips
+./tests/playtest.sh                  # real-input playtest: random keys, clicks and menu round trips; fails on any script error
 ```
-CI runs all three on every pull request and before every release. (`tests/smoke.gd` ends with Godot's usual harmless
-"resources still in use at exit" notice.)
+CI runs these on every pull request and before every release. A separate workflow
+([`cross-os.yml`](.github/workflows/cross-os.yml)) runs the headless tests on Linux, Windows and macOS runners; start it from
+*Actions → Cross-OS tests*. (`tests/smoke.gd` ends with Godot's usual harmless "resources still in use at exit" notice.)
 
 **Make your own build:** install the matching export templates (*Editor → Manage Export Templates*), then:
 ```bash
@@ -253,11 +267,11 @@ game/data/    monsters.json, items.json, spawns.json: edit these to rebalance or
 game/view/    map rendering, sprite atlas, depth theming, vignette shader
 game/ui/      main menu, game scene, HUD (hotbar, minimap, log), controls screen, theme
 assets/       tileset, icons, sound effects
-tests/        headless tests: run.gd (logic), smoke.gd (UI), fuzz.gd (soak)
+tests/        headless tests: run.gd (logic), smoke.gd (UI), fuzz.gd (soak), playtest.gd (real input)
 tools/        gen_assets.py: regenerates all art and audio
 installer/    Windows (Inno Setup) and Linux (AppImage, deb, rpm, Arch) packaging files
 .github/      CI and release workflows, issue and PR templates
-docs/         README screenshots
+docs/         the website (index.html, published with GitHub Pages) and README screenshots
 legacy/       the original Python/tcod game, kept for reference
 ```
 
@@ -274,7 +288,7 @@ Releases are fully automatic ([`release.yml`](.github/workflows/release.yml)). O
 1. The workflow reads the **latest release tag** and computes the next version from it:
    **patch** by default (`1.4.2 → 1.4.3`). Put `#minor` or `#major` anywhere in a commit message since the last release to
    bump that part instead. You can also run the workflow manually (*Actions → Release → Run workflow*) and pick the bump.
-   The very first release is `v0.1.0`.
+   Example: a bug fix is just a normal commit (patch, `1.0.0 → 1.0.1`); put `#minor` in the message for a feature release.
 2. All tests run (`ci.yml`: logic, UI smoke, soak). A failure stops the release.
 3. The game is exported for Windows, Linux and macOS with Godot 4.7 and the version is stamped into the build.
 4. Packages are built: Windows `Setup.exe` (Inno Setup, fixed AppId so it upgrades in place), macOS `.dmg`
@@ -287,6 +301,10 @@ Releases are fully automatic ([`release.yml`](.github/workflows/release.yml)). O
 **Rebuilding without a new version:** run *Actions → Release → Run workflow* with **bump = none**. It rebuilds every package
 from the current `main`, replaces the assets of the latest release (same version number) and moves its tag to the current
 commit. Useful after adding a new package type or fixing packaging.
+
+**The website:** [`pages.yml`](.github/workflows/pages.yml) builds a Godot web export and publishes it with `docs/index.html`
+to GitHub Pages whenever `docs/`, `game/` or `assets/` change. One-time setup: *Settings → Pages → Source = GitHub Actions*.
+To preview the page locally: `cd docs && python3 -m http.server`.
 
 Changes that only touch docs, `README.md`, `CHANGELOG.md` or `legacy/` do not trigger a release, and a commit message
 containing `[skip ci]` skips all workflows.

@@ -1,0 +1,32 @@
+name: Cross-OS tests
+
+# Runs the headless logic, smoke and fuzz tests on Linux, Windows and macOS runners.
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+      - name: Import project
+        run: godot --headless --import || true   # the first import run can exit non-zero on a cold cache
+      - name: Logic tests
+        run: godot --headless -s tests/run.gd
+      - name: UI smoke test
+        run: godot --headless -s tests/smoke.gd
+      - name: Random-bot soak test
+        run: godot --headless -s tests/fuzz.gd
