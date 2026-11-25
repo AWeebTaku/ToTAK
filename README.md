@@ -1,5 +1,9 @@
 # Tombs of the Ancient Kings (ToTAK)
 
+<!-- badges:start -->
+[![CI](https://github.com/AWeebTaku/ToTAK/actions/workflows/ci.yml/badge.svg)](https://github.com/AWeebTaku/ToTAK/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/AWeebTaku/ToTAK?display_name=tag)](https://github.com/AWeebTaku/ToTAK/releases/latest) [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/AWeebTaku/ToTAK/blob/main/LICENSE) ![Godot 4](https://img.shields.io/badge/Godot%204-478CBF?logo=godotengine&logoColor=white) ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
+<!-- badges:end -->
+
 A turn-based, pixel-art **horror roguelike** for **Windows, macOS and Linux**.
 Descend through procedurally generated tombs that get darker the deeper you go, survive ghouls and abominations with a single guttering torch, loot scrolls, potions, weapons and armor,
 level up, and see how deep you can get before the dark claims you. Low health pulses the edges of your screen red and fills your ears with your own heartbeat.
